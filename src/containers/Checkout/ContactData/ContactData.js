@@ -5,6 +5,8 @@ import axios from '../../../axios-order.js';
 import Spinner from '../../../components/UI/Spinner/Spinner.js';
 import Button from '../../../components/UI/Button/Button.js';
 import Input from '../../../components/UI/Input/Input.js';
+import withErrorHandler from '../../../hoc/withErrorHandler/withErrorHandler';
+import * as actions from '../../../store/action/index';
 
 import classes from './ContactData.module.scss';
 
@@ -97,25 +99,22 @@ class ContactData extends Component {
 
     orderHandler = (e) => {
         e.preventDefault();
-        this.setState({ loading: true })
+
         const formData = {};
         for (let formElementID in this.state.orderForm){
-            formData[formElementID] = this.state.orderForm[formElementID.value];
+            formData[formElementID] = this.state.orderForm[formElementID].value;
         }
+        console.log(this.state.orderForm);
         const order = {
             ingredients: this.props.ings,
             price: this.props.price,
-            orderData: formData
+            orderData: formData,
+            userId: this.props.userId
         }
 
-        axios.post( '/orders.json', order )
-            .then( response => {
-                this.setState( { loading: false } );
-                this.props.history.push('/');
-            } )
-            .catch( error => {
-                this.setState( { loading: false } );
-            } );
+        console.log(order);
+
+        this.props.onOrderBurger(order, this.props.token);
     }
 
     checkValidity(value, rules){
@@ -136,8 +135,8 @@ class ContactData extends Component {
     }
 
     inputChangedHandler = (event, inputID) => {
-        const updatedOrderForm = {...this.state.orderForm};
-        const updatedFormElement = {...updatedOrderForm[inputID]};
+        const updatedOrderForm = { ...this.state.orderForm };
+        const updatedFormElement = { ...updatedOrderForm[inputID] };
         updatedFormElement.value = event.target.value;
         updatedFormElement.valid = this.checkValidity(updatedFormElement.value, updatedFormElement.validation);
         updatedFormElement.touched = true;
@@ -178,13 +177,12 @@ class ContactData extends Component {
                         changed={(event) => this.inputChangedHandler(event, formElement.id)}/>)
                 })}
                 <Button 
-                    btnType="Success" 
-                    clicked={this.orderHandler}
+                    btnType="Success"
                     disabled={!this.state.formIsValid}>ORDER</Button>
             </form>
         );
 
-        if (this.state.loading){
+        if (this.props.loading){
             form = <Spinner />
         }
         return (
@@ -198,9 +196,18 @@ class ContactData extends Component {
 
 const mapStateToProps = state => {
     return {
-        ings: state.ingredients,
-        price: state.totalPrice
+        ings: state.burgerBuilder.ingredients,
+        price: state.burgerBuilder.totalPrice,
+        loading: state.order.loading,
+        token: state.auth.token,
+        userId: state.auth.userId
     }
 }
 
-export default connect(mapStateToProps)(ContactData);
+const mapDispatchToProps = dispatch => {
+    return {
+        onOrderBurger: (orderData, token) => dispatch(actions.purchaseBurger(orderData, token))
+    }
+}
+
+export default connect(mapStateToProps, mapDispatchToProps)(withErrorHandler(ContactData, axios));
